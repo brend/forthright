@@ -7,13 +7,12 @@ A tidy interpreter for a tiny subset of *FORTH* in under 200 lines of code.
 *forthright* is a pure Rust project you can easily build using cargo:
 
 ``` sh
-$ cargo build
+$ cargo build --release
 ```
 
-And run it the same way. Command line arguments are interpreted as a *FORTH* program:
+And run the built program. Command line arguments are interpreted as a *FORTH* program:
 
 ``` sh 
-$ cargo build --release
 $ target/release/forthright 3 4 + .
 ```
 
