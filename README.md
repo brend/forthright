@@ -25,3 +25,9 @@ echo "5 dup * ." | target/release/forthright
 ```
 
 This will print `25`.
+
+You can run the tests also using cargo:
+
+``` sh
+$ cargo test
+```
