@@ -21,7 +21,7 @@ This will run the program `3 4 + .` and thus print `7`.
 If no arguments are give, standard input is read and evaluated:
 
 ``` sh
-echo "5 dup * ." | target/release/forthright
+$ echo "5 dup * ." | target/release/forthright
 ```
 
 This will print `25`.
