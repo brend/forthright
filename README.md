@@ -10,6 +10,8 @@ A tidy interpreter for a tiny subset of *FORTH* in under 200 lines of code.
 $ cargo build --release
 ```
 
+Install the [Rust toolchain](https://rust-lang.org/learn/get-started/) first if you need to.
+
 And run the built program. Command line arguments are interpreted as a *FORTH* program:
 
 ``` sh 
