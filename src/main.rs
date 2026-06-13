@@ -1,3 +1,5 @@
+use std::{env, io};
+
 #[derive(Debug)]
 enum Inst {
     Con(i32),
@@ -26,11 +28,12 @@ use Inst::*;
 fn eval_binop(stack: &mut Vec<i32>, op: fn(i32, i32) -> i32) -> Result<(), Error> {
     let o2 = stack.pop().ok_or(Error::StackUnderflow)?;
     let o1 = stack.pop().ok_or(Error::StackUnderflow)?;
-    Ok(stack.push(op(o1, o2)))
+    stack.push(op(o1, o2));
+    Ok(())
 }
 
 fn eval(program: &[Inst], stack: &mut Vec<i32>) -> Result<i32, Error> {
-    let Some(i) = program.get(0) else {
+    let Some(i) = program.first() else {
         return Err(Error::Eof);
     };
 
@@ -78,25 +81,15 @@ fn parse_token(token: &str) -> Result<Inst, Error> {
 }
 
 fn parse_program(input: &str) -> Result<Vec<Inst>, Error> {
-    input
-        .split_whitespace()
-        .into_iter()
-        .map(parse_token)
-        .collect()
+    input.split_whitespace().map(parse_token).collect()
 }
 
 fn read_input() -> Result<String, Error> {
     if std::env::args().len() > 1 {
-        Ok(std::env::args()
-            .into_iter()
-            .skip(1)
-            .collect::<Vec<_>>()
-            .join(" "))
+        Ok(env::args().skip(1).collect::<Vec<_>>().join(" "))
     } else {
         let mut input = String::new();
-        std::io::stdin()
-            .read_to_string(&mut input)
-            .or(Err(Error::IO))?;
+        io::stdin().read_to_string(&mut input).or(Err(Error::IO))?;
         Ok(input)
     }
 }
