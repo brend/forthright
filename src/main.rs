@@ -1,4 +1,4 @@
-use std::{env, io};
+use std::{env, fmt, io};
 
 #[derive(Debug)]
 enum Inst {
@@ -10,16 +10,29 @@ enum Inst {
     Dup,
     Drop,
     Swap,
-    Stop,
+    Print,
 }
 
 #[derive(Debug)]
 enum Error {
-    IO,
-    Parse,
-    Eof,
+    Io(io::Error),
+    ParseToken(String),
     StackUnderflow,
+    DivZero,
 }
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::Io(e) => write!(f, "I/O error: {e}"),
+            Error::ParseToken(t) => write!(f, "could not parse token: {t:?}"),
+            Error::StackUnderflow => write!(f, "stack underflow"),
+            Error::DivZero => write!(f, "division by zero"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
 
 use std::io::Read;
 
@@ -32,35 +45,47 @@ fn eval_binop(stack: &mut Vec<i32>, op: fn(i32, i32) -> i32) -> Result<(), Error
     Ok(())
 }
 
-fn eval(program: &[Inst], stack: &mut Vec<i32>) -> Result<i32, Error> {
-    let Some(i) = program.first() else {
-        return Err(Error::Eof);
-    };
+fn eval(program: &[Inst]) -> Result<(), Error> {
+    let mut stack = vec![];
 
-    match i {
-        Con(n) => stack.push(*n),
-        Add => eval_binop(stack, |a, b| a + b)?,
-        Sub => eval_binop(stack, |a, b| a - b)?,
-        Mul => eval_binop(stack, |a, b| a * b)?,
-        Div => eval_binop(stack, |a, b| a / b)?,
-        Dup => {
-            let o = stack.pop().unwrap();
-            stack.push(o);
-            stack.push(o);
+    for inst in program {
+        match inst {
+            Con(n) => stack.push(*n),
+            Add => eval_binop(&mut stack, |a, b| a + b)?,
+            Sub => eval_binop(&mut stack, |a, b| a - b)?,
+            Mul => eval_binop(&mut stack, |a, b| a * b)?,
+            Div => {
+                let b = stack.pop().ok_or(Error::StackUnderflow)?;
+                let a = stack.pop().ok_or(Error::StackUnderflow)?;
+
+                if b == 0 {
+                    return Err(Error::DivZero);
+                }
+
+                stack.push(a / b);
+            }
+            Dup => {
+                let o = *stack.last().ok_or(Error::StackUnderflow)?;
+                stack.push(o);
+            }
+            Drop => {
+                stack.pop().ok_or(Error::StackUnderflow)?;
+            }
+            Swap => {
+                let len = stack.len();
+                if len < 2 {
+                    return Err(Error::StackUnderflow);
+                }
+                stack.swap(len - 1, len - 2);
+            }
+            Print => {
+                let n = stack.pop().ok_or(Error::StackUnderflow)?;
+                println!("{n}");
+            }
         }
-        Drop => {
-            stack.pop();
-        }
-        Swap => {
-            let o2 = stack.pop().unwrap();
-            let o1 = stack.pop().unwrap();
-            stack.push(o2);
-            stack.push(o1);
-        }
-        Stop => return Ok(stack[0]),
     }
 
-    eval(&program[1..], stack)
+    Ok(())
 }
 
 fn parse_token(token: &str) -> Result<Inst, Error> {
@@ -72,11 +97,11 @@ fn parse_token(token: &str) -> Result<Inst, Error> {
         "dup" => Dup,
         "drop" => Drop,
         "swap" => Swap,
-        "." => Stop,
-        s => {
-            let n = s.parse::<i32>().or(Err(Error::Parse))?;
-            Con(n)
-        }
+        "." => Print,
+        s => s
+            .parse::<i32>()
+            .map(Con)
+            .map_err(|_| Error::ParseToken(s.to_string()))?,
     })
 }
 
@@ -85,21 +110,26 @@ fn parse_program(input: &str) -> Result<Vec<Inst>, Error> {
 }
 
 fn read_input() -> Result<String, Error> {
-    if std::env::args().len() > 1 {
-        Ok(env::args().skip(1).collect::<Vec<_>>().join(" "))
-    } else {
+    let args: Vec<String> = env::args().skip(1).collect();
+
+    if args.is_empty() {
         let mut input = String::new();
-        io::stdin().read_to_string(&mut input).or(Err(Error::IO))?;
+        io::stdin().read_to_string(&mut input).map_err(Error::Io)?;
         Ok(input)
+    } else {
+        Ok(args.join(" "))
     }
 }
 
-fn main() -> Result<(), Error> {
+fn run() -> Result<(), Error> {
     let input = read_input()?;
-    println!("{input}");
     let program = parse_program(&input)?;
-    let mut stack = vec![];
-    let result = eval(&program, &mut stack)?;
-    println!("{result:?}");
-    Ok(())
+    eval(&program)
+}
+
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("error: {e}");
+        std::process::exit(1);
+    }
 }
